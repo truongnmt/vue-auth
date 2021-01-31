@@ -727,6 +727,13 @@ Auth.prototype.oauth2 = function (type, data) {
 
         data = __utils.extend(__auth.options.oauth2Data, [data.state, data]);
 
+        data = extend(__auth.options.oauth2Data, [data.state, data]);
+        if(localStorage.ssoState === undefined || data.state.ssoState === undefined || localStorage.ssoState !== data.state.ssoState) {
+            console.error('vue-auth:error CSRF detected. Invalid state data');
+            __auth.drivers.router.routerGo.call(__auth, data.redirect || '/');
+            return;
+        }
+
         delete data.code;
         delete data.state;
         delete data.params;
@@ -734,14 +741,20 @@ Auth.prototype.oauth2 = function (type, data) {
         return __auth.login(data);
     }
 
+    var uuid = require('uuid');
+    var ssoState = uuid.v4();
+
     data = __utils.extend(__auth.drivers.oauth2[type], data);
 
+    data.params.state = {...data.params.state, ssoState: ssoState};
     data.params.state        = JSON.stringify(data.params.state || {});
     data.params.redirect_uri = _parseRedirectUri(data.params.redirect_uri);
 
     for (key in data.params) {
         params += '&' + key + '=' + encodeURIComponent(data.params[key]);
     }
+
+    localStorage.ssoState = ssoState;
 
     window.open(
         data.url + '?' + params.substring(),
